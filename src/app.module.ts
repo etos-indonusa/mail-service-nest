@@ -7,6 +7,10 @@ import { join } from 'path';
 import { Email } from './entities/entities/Email';
 import { EmailContent } from './entities/entities/EmailContent';
 import { EmailQueue } from './entities/entities/EmailQueue';
+import { EmailProcessor } from './jobs/email.processor';
+import { KafkaConsumerService } from './kafka/kafka.consumer';
+import { EmailService } from './services/email.service';
+import { MailtrapWebhookController } from './controllers/mailtrap-webhook.controller';
 
 @Module({
     imports: [
@@ -22,7 +26,7 @@ import { EmailQueue } from './entities/entities/EmailQueue';
         }),
         TypeOrmModule.forFeature([Email, EmailContent, EmailQueue]), 
     ],
-    controllers: [AppController],
-    providers: [AppService],
+    controllers: [AppController, MailtrapWebhookController],
+    providers: [AppService, KafkaConsumerService, EmailService, EmailProcessor],
 })
 export class AppModule { }

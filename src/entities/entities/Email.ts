@@ -45,7 +45,7 @@ export class Email {
     enum: ["pending", "ready", "sent", "failed"],
     default: () => "'pending'",
   })
-  status: "pending" | "ready" | "sent" | "failed" | null;
+  status: string | null;
 
   @Column("datetime", { name: "sent_at", nullable: true })
   sentAt: Date | null;
