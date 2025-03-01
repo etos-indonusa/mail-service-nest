@@ -13,6 +13,9 @@ export class Email {
   @Column("varchar", { name: "from_module", nullable: true, length: 136 })
   fromModule: string | null;
 
+    @Column("varchar", { name: "message_id", nullable: true, length: 136 })
+  messageId: string | null;
+
   @Column("varchar", { name: "from_module_id", nullable: true, length: 36 })
   fromModuleId: string | null;
 
@@ -21,6 +24,9 @@ export class Email {
 
   @Column("varchar", { name: "recipient_email", length: 255 })
   recipientEmail: string;
+
+    @Column("varchar", { name: "cc_email", length: 255 })
+  cctEmail: string;
 
   @Column("varchar", { name: "nama", length: 255 })
   nama: string;

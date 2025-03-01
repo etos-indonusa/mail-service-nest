@@ -7,7 +7,7 @@ export class KafkaConsumerService implements OnModuleInit {
     private readonly logger = new Logger(KafkaConsumerService.name);
     private readonly kafka = new Kafka({
         clientId: 'email-service',
-        brokers: ['192.168.1.92:9092'],
+        brokers: ['10.0.16.202:9092'],
     });
 
     private readonly consumer = this.kafka.consumer({ groupId: 'email-group' });

@@ -2,7 +2,7 @@
   {
     "name": "default",
     "type": "mysql",
-    "host": "192.168.1.94",
+    "host": "10.0.16.206",
     "port": 3306,
     "username": "app",
     "password": "Pantek123!@#",

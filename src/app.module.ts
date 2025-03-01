@@ -16,7 +16,7 @@ import { MailtrapWebhookController } from './controllers/mailtrap-webhook.contro
     imports: [
         TypeOrmModule.forRoot({
             type: 'mysql',
-            host: '192.168.1.94', // Ganti dengan host MySQL Anda
+            host: '10.0.16.206', // Ganti dengan host MySQL Anda
             port: 3306,        // Port MySQL default
             username: 'app',  // Username MySQL
             password: 'Pantek123!@#', // Password MySQL

@@ -6,11 +6,15 @@ import * as nodemailer from 'nodemailer';
 import { Email } from 'src/entities/entities/Email';
 import { EmailContent } from 'src/entities/entities/EmailContent';
 import { EmailQueue } from 'src/entities/entities/EmailQueue';
+import { text } from 'stream/consumers';
+const axios = require("axios");
+const fs = require("fs");
+
 
 @Injectable()
 export class EmailService {
     private readonly logger = new Logger(EmailService.name);
-    private readonly kafka = new Kafka({ brokers: ['192.168.1.92:9092'], clientId: 'kafka-mail-service', });
+    private readonly kafka = new Kafka({ brokers: ['10.0.16.202:9092'], clientId: 'kafka-mail-service', });
     private readonly producer = this.kafka.producer({
         createPartitioner: Partitioners.LegacyPartitioner
     });
@@ -72,26 +76,74 @@ export class EmailService {
                 pass: '914646ea32e5bc72d624f012f9f10aa5',
             },
         });
+        
 
         try {
-            // Kirim email dengan nodemailer
-            await transporter.sendMail({
-                from: '"Service Etos" <noreply@service.etos.co.id>',
+            // Kirim email dengan nodemailer 
+            const fileUrl = emailContent.attachments['bap']; // Ganti dengan URL PDF Anda
+            const filePath = email.fromModuleId+" BAP.pdf";
+
+            // Unduh file dari URL
+            const download = await axios({
+                url: fileUrl,
+                method: "GET",
+                responseType: "arraybuffer",
+            });
+
+            // Simpan file sementara
+            fs.writeFileSync(filePath, download.data);
+
+
+            const info = await transporter.sendMail({
+                from: '"ETOS " <noreply@service.etos.co.id>',
                 to: email.recipientEmail,
-                subject: email.subject,
+                // subject: JSON.parse(emailContent.headers),
+                subject: emailContent.headers['subject'],
                 html: emailContent.emailBody,
+                text: emailContent.emailBodyText,
+                cc: JSON.parse(email.cctEmail),
                 headers: {
                     'X-Event-ID': email.idEmail, // Custom header untuk tracking
                 },
+                attachments: [
+                    {
+                        filename: "BAP.pdf",
+                        path: filePath, // Path ke file yang baru diunduh
+                    },
+                ],
+                // attachments: [
+                    
+                //     {
+                //         filename: 'BAP.pdf',
+                //         content: fileBuffer,
+                //         contentType: file.headers.get('content-type') || 'application/pdf',
+                //     }
+                //     ,
+                // ],
+                messageId:email.idEmail
             });
 
-            this.logger.log(`Email berhasil dikirim ke ${email.recipientEmail}`);
+            this.logger.log(`Email berhasil dikirim ke ${email.recipientEmail}`); 
+            this.logger.log(`emailContent ke ${JSON.stringify(email)}`); 
 
+            // Gunakan regex untuk mengambil queued ID
+            const response = info.response.split("queued as ");
+            let id_dari_mailtrap = null;
+            if (response.length > 1) {
+                id_dari_mailtrap = response[1].trim(); // Ambil ID setelah "queued as"
+                console.log("Queued ID:", id_dari_mailtrap);
+            } else {
+                console.log("Queued ID tidak ditemukan.");
+            }
+
+            fs.unlinkSync(filePath);
+            this.logger.log(`Email berhasil dikirim ke ${id_dari_mailtrap}`); 
             // Update status di database
             email.status = 'sent';
             email.sentAt = new Date();
+            email.messageId = id_dari_mailtrap;
             await this.emailRepository.save(email);
-
+            //<244f5e15-2ffb-a375-3530-75f28ef3d518@service.etos.co.id>
             // Hapus dari email_queue karena sudah terkirim
             await this.emailQueueRepository.delete({ idEmail:email.idEmail });
 

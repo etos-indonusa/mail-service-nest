@@ -13,33 +13,35 @@ export class MailtrapWebhookController {
     ) { }
 
     @Post()
-    async handleWebhook(@Body() body: any, @Headers('x-event-id') eventId: string) {
+    async handleWebhook(@Body() body: any) {
         this.logger.log('Webhook received:', JSON.stringify(body));
-        this.logger.log(`Event ID dari header: ${eventId}`);
-
-        if (!eventId) {
-            this.logger.warn('Event ID tidak ditemukan di webhook!');
-            return;
-        }
-
+        
+        let ress = body.events[0];
         // Cari email berdasarkan event ID
-        const email = await this.emailRepository.findOneBy({ idEmail:eventId });
+        const email = await this.emailRepository.findOneBy({ messageId: ress.message_id });
         if (!email) {
-            this.logger.warn(`Email dengan Event ID ${eventId} tidak ditemukan.`);
+            this.logger.warn(`Email dengan Event ID ${ress.message_id} tidak ditemukan.`);
             return;
         }
 
         // Update status email berdasarkan response webhook
-        if (body.event === 'delivered') {
-            email.status = 'delivered';
-        } else if (body.event === 'failed') {
-            email.status = 'failed';
-        } else if (body.event === 'opened') {
-            email.status = 'opened';
-        } else {
-            email.status = 'unknown';
-        }
-
+        // if (ress.event === 'delivery') {
+        //     email.status = 'delivered';
+        // } else 
+        //     if (ress.event === 'reject') {
+        //         email.status = 'reject';
+        // } else 
+        // if (ress.event === 'delivered') {
+        //     email.status = 'delivered';
+        // } else 
+        // if (ress.event === 'reject') {
+        //     email.status = 'failed';
+        // } else if (ress.event === 'opened') {
+        //     email.status = 'opened';
+        // } else {
+        //     email.status = 'unknown';
+        // }
+        email.status = ress.event;
         email.updatedAt = new Date();
         await this.emailRepository.save(email);
 
