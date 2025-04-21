@@ -61,6 +61,8 @@ export class EmailService {
             await this.emailQueueRepository.save(newEmailQueue);
         }
 
+        
+
         this.logger.log(`Email dengan ID ${idEmail} dimasukkan ke antrian pengiriman.`);
         await this.sendEmail(email, emailContent);
     }
@@ -111,18 +113,11 @@ export class EmailService {
                         path: filePath, // Path ke file yang baru diunduh
                     },
                 ],
-                // attachments: [
-                    
-                //     {
-                //         filename: 'BAP.pdf',
-                //         content: fileBuffer,
-                //         contentType: file.headers.get('content-type') || 'application/pdf',
-                //     }
-                //     ,
-                // ],
+               
                 messageId:email.idEmail
             });
 
+            this.logger.log(`BAP ${emailContent.attachments['bap']}`); 
             this.logger.log(`Email berhasil dikirim ke ${email.recipientEmail}`); 
             this.logger.log(`emailContent ke ${JSON.stringify(email)}`); 
 
@@ -135,6 +130,12 @@ export class EmailService {
             } else {
                 console.log("Queued ID tidak ditemukan.");
             }
+
+
+            //pada bagian ini saya ingin mengupdate tabel lain tapi beda database
+            //saya rencana menggunakan row sql supaya bisa di typeorrm
+            this.trigerTableLain(email)
+            // update wo set status='email-ready' WHERE id_wo='email.from_module_id'
 
             fs.unlinkSync(filePath);
             this.logger.log(`Email berhasil dikirim ke ${id_dari_mailtrap}`); 
@@ -187,6 +188,14 @@ export class EmailService {
                 await this.emailQueueRepository.save(newQueueEntry);
             }
         }
+    }
+
+    async trigerTableLain(email : Email) {
+        if(email.fromModule=='wo')
+        {
+            const sql = `UPDATE erp_pekerjaan_standby_v3.wo SET status = ? WHERE id_wo = ?`;
+            await this.emailRepository.query(sql, ['email-send', email.fromModuleId]);
+        } 
     }
 
     // Fungsi untuk mengirim event Kafka
