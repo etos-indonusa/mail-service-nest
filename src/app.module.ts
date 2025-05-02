@@ -11,6 +11,8 @@ import { EmailProcessor } from './jobs/email.processor';
 import { KafkaConsumerService } from './kafka/kafka.consumer';
 import { EmailService } from './services/email.service';
 import { MailtrapWebhookController } from './controllers/mailtrap-webhook.controller';
+import { ScheduleModule } from '@nestjs/schedule';
+import { EmailQueueProcessorService } from './jobs/re-que-email.processor';
 
 @Module({
     imports: [
@@ -25,8 +27,9 @@ import { MailtrapWebhookController } from './controllers/mailtrap-webhook.contro
             synchronize: false, // Jangan sinkronkan karena database sudah ada
         }),
         TypeOrmModule.forFeature([Email, EmailContent, EmailQueue]), 
+        ScheduleModule.forRoot(),
     ],
     controllers: [AppController, MailtrapWebhookController],
-    providers: [AppService, KafkaConsumerService, EmailService, EmailProcessor],
+    providers: [AppService, KafkaConsumerService, EmailService, EmailProcessor, EmailQueueProcessorService],
 })
 export class AppModule { }

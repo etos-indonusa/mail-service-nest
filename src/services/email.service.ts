@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, LessThanOrEqual, Repository } from 'typeorm';
 import { Kafka, Partitioners } from 'kafkajs';
-import * as nodemailer from 'nodemailer'; 
+import * as nodemailer from 'nodemailer';
 import { Email } from 'src/entities/entities/Email';
 import { EmailContent } from 'src/entities/entities/EmailContent';
 import { EmailQueue } from 'src/entities/entities/EmailQueue';
@@ -18,7 +18,7 @@ export class EmailService {
     private readonly producer = this.kafka.producer({
         createPartitioner: Partitioners.LegacyPartitioner
     });
-    
+
     constructor(
         @InjectRepository(Email) private emailRepository: Repository<Email>,
         @InjectRepository(EmailContent) private emailContentRepository: Repository<EmailContent>,
@@ -34,9 +34,9 @@ export class EmailService {
             this.logger.warn(`Email dengan ID ${idEmail} tidak ditemukan.`);
             return;
         }
-        
+
         // Cek apakah email sudah pernah gagal dikirim lebih dari 3 kali
-        const emailQueue = await this.emailQueueRepository.findOne({ where: { idEmail:idEmail } });
+        const emailQueue = await this.emailQueueRepository.findOne({ where: { idEmail: idEmail } });
 
         if (emailQueue && emailQueue.attemptCount >= 3) {
             this.logger.warn(`Email dengan ID ${idEmail} sudah gagal dikirim lebih dari 3 kali. Tidak akan dicoba lagi.`);
@@ -61,7 +61,7 @@ export class EmailService {
             await this.emailQueueRepository.save(newEmailQueue);
         }
 
-        
+
 
         this.logger.log(`Email dengan ID ${idEmail} dimasukkan ke antrian pengiriman.`);
         await this.sendEmail(email, emailContent);
@@ -78,12 +78,12 @@ export class EmailService {
                 pass: '914646ea32e5bc72d624f012f9f10aa5',
             },
         });
-        
+
 
         try {
             // Kirim email dengan nodemailer 
             const fileUrl = emailContent.attachments['bap']; // Ganti dengan URL PDF Anda
-            const filePath = email.fromModuleId+" BAP.pdf";
+            const filePath = email.fromModuleId + " BAP.pdf";
 
             // Unduh file dari URL
             const download = await axios({
@@ -113,13 +113,13 @@ export class EmailService {
                         path: filePath, // Path ke file yang baru diunduh
                     },
                 ],
-               
-                messageId:email.idEmail
+
+                messageId: email.idEmail
             });
 
-            this.logger.log(`BAP ${emailContent.attachments['bap']}`); 
-            this.logger.log(`Email berhasil dikirim ke ${email.recipientEmail}`); 
-            this.logger.log(`emailContent ke ${JSON.stringify(email)}`); 
+            this.logger.log(`BAP ${emailContent.attachments['bap']}`);
+            this.logger.log(`Email berhasil dikirim ke ${email.recipientEmail}`);
+            this.logger.log(`emailContent ke ${JSON.stringify(email)}`);
 
             // Gunakan regex untuk mengambil queued ID
             const response = info.response.split("queued as ");
@@ -134,11 +134,11 @@ export class EmailService {
 
             //pada bagian ini saya ingin mengupdate tabel lain tapi beda database
             //saya rencana menggunakan row sql supaya bisa di typeorrm
-            this.trigerTableLain(email)
+            this.trigerTableLain(email, 'email-send')
             // update wo set status='email-ready' WHERE id_wo='email.from_module_id'
 
             fs.unlinkSync(filePath);
-            this.logger.log(`Email berhasil dikirim ke ${id_dari_mailtrap}`); 
+            this.logger.log(`Email berhasil dikirim ke ${id_dari_mailtrap}`);
             // Update status di database
             email.status = 'sent';
             email.sentAt = new Date();
@@ -146,7 +146,7 @@ export class EmailService {
             await this.emailRepository.save(email);
             //<244f5e15-2ffb-a375-3530-75f28ef3d518@service.etos.co.id>
             // Hapus dari email_queue karena sudah terkirim
-            await this.emailQueueRepository.delete({ idEmail:email.idEmail });
+            await this.emailQueueRepository.delete({ idEmail: email.idEmail });
 
             // Kirim event Kafka: Email berhasil
             await this.sendKafkaEvent(email.idEmail, 'sent');
@@ -162,6 +162,9 @@ export class EmailService {
 
                 if (queueEntry.attemptCount >= 3) {
                     this.logger.warn(`Percobaan pengiriman email untuk ${email.recipientEmail} telah gagal lebih dari 3 kali. Tidak akan dicoba lagi.`);
+
+                    this.trigerTableLain(email, 'email-failed');
+
                     queueEntry.status = 'failed';
 
                     // Update email status sebagai gagal total
@@ -190,12 +193,11 @@ export class EmailService {
         }
     }
 
-    async trigerTableLain(email : Email) {
-        if(email.fromModule=='wo')
-        {
+    async trigerTableLain(email: Email,status:string) {
+        if (email.fromModule == 'wo') {
             const sql = `UPDATE erp_pekerjaan_standby_v3.wo SET status = ? WHERE id_wo = ?`;
-            await this.emailRepository.query(sql, ['email-send', email.fromModuleId]);
-        } 
+            await this.emailRepository.query(sql, [status, email.fromModuleId]);
+        }
     }
 
     // Fungsi untuk mengirim event Kafka
@@ -220,5 +222,16 @@ export class EmailService {
         }
 
         await producer.disconnect();
+    }
+
+    async getPendingEmails(): Promise<EmailQueue[]> {
+        return this.emailQueueRepository.find({
+            where: {
+                status: 'pending',
+                attemptCount: LessThan(3) 
+            },
+            order: { priority: 'DESC' },
+            take: 10,
+        });
     }
 }
